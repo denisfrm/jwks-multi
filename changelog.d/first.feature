@@ -1,0 +1,1 @@
+Lançamento inicial da biblioteca `jwks-multi-verifier`, com a API pública `JWKSMultiSourceVerifier` para validar JWTs usando múltiplas fontes JWKS, cache em memória com TTL opcional, chaves locais de fallback e validação estendida de claims.

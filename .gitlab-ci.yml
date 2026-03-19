@@ -1,0 +1,103 @@
+image: python:3.14.3-slim
+
+variables:
+  QUALITY_GATE_IMAGE: ghcr.io/astral-sh/uv:python3.14-alpine
+
+stages:
+  - install
+  - quality_gate
+
+cache:
+  key:
+    files:
+      - uv.lock
+  paths:
+    - .venv/
+    - .env
+  policy: pull-push
+
+
+########################
+# Quality Gate Stage
+########################
+
+install_dependencies_quality_gate:
+  image: $QUALITY_GATE_IMAGE
+  stage: install
+  before_script:
+    - |
+      if git diff --name-only HEAD^ HEAD | grep -q "uv.lock"; then
+        echo "uv.lock foi alterado. O job será executado."
+      elif [ ! -d .venv ]; then
+        echo "Pasta .venv não encontrada no cache. O job será executado."
+      else
+        echo "Sem alterações no uv.lock e .venv encontrado no cache. Pulando job."
+        exit 0
+      fi
+  script:
+    - cp .env-sample .env
+    - make create-venv
+    - make install-quality-check
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_TAG'
+      changes:
+        paths:
+          - uv.lock
+  artifacts:
+    expire_in: 1 year
+    paths:
+      - .venv/
+      - .env
+
+lint:
+  image: $QUALITY_GATE_IMAGE
+  stage: quality_gate
+  script:
+    - make lint
+  coverage: '/^TOTAL\s+\d+\s+\d+\s+(\d+\%)$/'
+  dependencies: [install_dependencies_quality_gate]
+  only: [merge_requests]
+
+unit_tests:
+  image: $QUALITY_GATE_IMAGE
+  stage: quality_gate
+  script:
+    - make coverage
+  coverage: '/^TOTAL\s+\d+\s+\d+\s+(\d+\%)$/'
+  artifacts:
+    expire_in: 15 days
+    paths:
+      - coverage.xml
+  dependencies: [install_dependencies_quality_gate]
+  only: [merge_requests, tags]
+
+secret-leaks:
+  image: ghcr.io/gitleaks/gitleaks:$GITLEAKS_VERSION
+  stage: quality_gate
+  before_script:
+    - echo "Analisando commits do merge request $CI_MERGE_REQUEST_DIFF_BASE_SHA to $CI_COMMIT_SHORT_SHA"
+  script:
+    - gitleaks detect --source=. --verbose --redact --log-opts="--no-merges $CI_MERGE_REQUEST_DIFF_BASE_SHA..$CI_COMMIT_SHORT_SHA"
+  rules:
+    - if: $CI_MERGE_REQUEST_IID
+
+code-review:
+  image: $CIKNIFE_IMAGE
+  stage: quality_gate
+  script: ci-knife mr-code-review
+  dependencies:
+    - lint
+    - unit_tests
+  needs:
+    - lint
+    - unit_tests
+  allow_failure: true
+  rules:
+    - if: '$CI_MERGE_REQUEST_LABELS =~ /In review/'
+      when: manual
+    - if: '$CI_MERGE_REQUEST_TITLE =~ /^(Draft:|\[Draft\])/i'
+      when: manual
+    - if: >
+        $CI_PIPELINE_SOURCE == "merge_request_event"
+        && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME !~ /^release//
+      when: on_success
