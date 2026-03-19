@@ -1,1 +1,0 @@
-Estruturado o fluxo inicial de empacotamento e release da biblioteca, com metadados do projeto, licença MIT, dependências de release (`build` e `twine`) e o alvo `make release-check` para validar artefatos localmente.
