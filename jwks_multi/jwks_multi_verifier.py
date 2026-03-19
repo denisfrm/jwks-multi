@@ -9,7 +9,7 @@ from authlib.jose import JsonWebKey, JWTClaims, KeySet, jwt
 
 from jwks_multi.extentions.jwt_clains import ExtendedJWTClaims
 
-logger = logging.getLogger('jwks-multi-verifier')
+logger = logging.getLogger('jwks_multi')
 
 _jwk_set: dict[str, dict[str, list[Any] | float]] = {}
 _jwk_locks: dict[str, asyncio.Lock] = {}
