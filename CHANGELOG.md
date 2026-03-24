@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-03-24
+
+### Added
+
+- Adjust for raise only dont have any public keys. (raise-only-not-keys)
+
+### Changed
+
+- Adjust quality pipeline to dont copy .env-sample file to the build folder, as it is not needed for the quality pipeline and it can cause confusion if it is present in the build folder. (quality-pipeline)
+
+### Changed
+
+- Adjust logger name to match the new package structure. This is necessary to ensure that log messages are correctly categorized and can be filtered appropriately in logging systems. The new logger name should reflect the updated package structure while maintaining clarity and consistency with existing logging practices. (logger-name)
+
+
 ## [0.1.0] - 2026-03-19
 
 ### Added
