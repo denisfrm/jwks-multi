@@ -4,12 +4,12 @@ import time
 from typing import Any
 
 import httpx
-from authlib.common.errors import AuthlibHTTPError
+from authlib.common.errors import AuthlibBaseError
 from authlib.jose import JsonWebKey, JWTClaims, KeySet, jwt
 
 from jwks_multi.extentions.jwt_clains import ExtendedJWTClaims
 
-logger = logging.getLogger('jwks-multi-verifier')
+logger = logging.getLogger('jwks_multi')
 
 _jwk_set: dict[str, dict[str, list[Any] | float]] = {}
 _jwk_locks: dict[str, asyncio.Lock] = {}
@@ -91,6 +91,14 @@ def _get_jwks_set() -> KeySet:
     jwks_set = []
     for jwk in _jwk_set.values():
         jwks_set.extend(jwk['keys'])
+    if not jwks_set:
+        raise AuthlibBaseError(
+            error='missing_keys',
+            description=(
+                'No JWKS keys available. '
+                'Verify the provided URLs and pre_public_keys.'
+            ),
+        )
     return KeySet(jwks_set)
 
 
@@ -160,8 +168,7 @@ async def _get_remote_jwks(
                         expires_at=expires_at,
                     )
 
-    except httpx.HTTPError as e:
-        error_message = f'Fail to fetch data from the url, err: "{e}"'
-        raise AuthlibHTTPError(error_message) from e
+    except httpx.HTTPError:
+        logger.exception('Fail to fetch data from the url %s', uri)
 
     return _jwk_set

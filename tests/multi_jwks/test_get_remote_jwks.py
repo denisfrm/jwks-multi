@@ -3,7 +3,6 @@ from unittest.mock import call, patch
 
 import httpx
 import pytest
-from authlib.common.errors import AuthlibHTTPError
 
 from jwks_multi import jwks_multi_verifier
 
@@ -13,6 +12,12 @@ def mock_is_cached():
     with patch('jwks_multi.jwks_multi_verifier._is_cached') as mocked:
         mocked.return_value = True
         mocked.side_effect = (False, False)
+        yield mocked
+
+
+@pytest.fixture
+def mock_logger():
+    with patch('jwks_multi.jwks_multi_verifier.logger') as mocked:
         yield mocked
 
 
@@ -46,6 +51,7 @@ async def test_get_remote_jwks_skips_fetch_when_cache_is_valid(
 async def test_get_remote_jwks_wraps_http_errors(
     mock_async_client,
     verifier,
+    mock_logger,
 ) -> None:
     mock_async_client_class, client = mock_async_client
 
@@ -53,15 +59,15 @@ async def test_get_remote_jwks_wraps_http_errors(
 
     uri = 'https://issuer.example/.well-known/jwks.json'
 
-    with pytest.raises(
-        AuthlibHTTPError, match='Fail to fetch data from the url'
-    ):
-        await verifier._get_remote_jwks(
-            jwks_urls=[uri],
-            jwks_timeout=5.0,
-            jwks_ttl=None,
-            cache_jwk_set=False,
-        )
+    await verifier._get_remote_jwks(
+        jwks_urls=[uri],
+        jwks_timeout=5.0,
+        jwks_ttl=None,
+        cache_jwk_set=False,
+    )
+    mock_logger.exception.assert_called_once_with(
+        'Fail to fetch data from the url %s', uri
+    )
 
 
 @pytest.mark.freeze_time(datetime.fromtimestamp(100, tz=timezone.utc))

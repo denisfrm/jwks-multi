@@ -2,7 +2,9 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
+from authlib.common.errors import AuthlibBaseError
 
 from jwks_multi import jwks_multi_verifier
 
@@ -56,3 +58,27 @@ async def test_get_public_keys_merges_local_and_remote_sources(
     response.raise_for_status.assert_called_once_with()
     assert mock_import_key_set.call_count == 2
     mock_key_set.assert_called_once()
+
+
+@pytest.mark.freeze_time(datetime.fromtimestamp(100, tz=timezone.utc))
+async def test_get_public_keys_raises_key_not_found(
+    mock_import_key_set,
+    mock_key_set,
+    mock_async_client,
+    verifier,
+):
+    _, client = mock_async_client
+    client.get.side_effect = httpx.HTTPError('network failure')
+
+    with pytest.raises(AuthlibBaseError, match='No JWKS keys available'):
+        await verifier.get_public_keys(
+            jwks_urls=['https://issuer.example/.well-known/jwks.json'],
+            pre_public_keys=None,
+            jwks_ttl=30,
+        )
+
+    client.get.assert_awaited_once_with(
+        "https://issuer.example/.well-known/jwks.json"
+    )
+    assert mock_import_key_set.call_count == 0
+    mock_key_set.assert_not_called()

@@ -1,0 +1,1 @@
+Adjust quality pipeline to dont copy .env-sample file to the build folder, as it is not needed for the quality pipeline and it can cause confusion if it is present in the build folder.

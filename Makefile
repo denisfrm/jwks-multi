@@ -34,12 +34,10 @@ install-uv: ## Install UV
 	curl -LsSf https://astral.sh/uv/install.sh | sh
 
 create-venv:
-	@uv self update
 	@uv python install 3.14.3
 	@uv venv --python 3.14.3 --clear
 
 init-local: create-venv  ## Initialize the local development environment
-	@cp .env-sample .env
 	@uv sync --locked --all-groups
 	@$(MAKE) lint-fix format
 
