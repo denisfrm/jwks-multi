@@ -24,7 +24,7 @@ jobs:
       - name: Install build tools
         run: pip install --upgrade build twine
       - name: Build artifacts
-        run: python -m twine check --strict dist/*
+        run: python -m build
       - name: Publish to PyPI
         env:
           TWINE_USERNAME: __token__
