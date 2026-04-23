@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-23
+
+No significant changes.
+
+
 ## [0.2.0] - 2026-03-24
 
 ### Added
