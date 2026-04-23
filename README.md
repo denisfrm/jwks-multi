@@ -11,10 +11,10 @@ API publica principal:
 ### pip
 
 ```bash
-pip install "git+ssh://git@gitlab.luizalabs.com/luizalabs/risco-360/libs/jwks-multi.git"
-pip install "git+ssh://git@gitlab.luizalabs.com/luizalabs/risco-360/libs/jwks-multi.git@main"
-pip install "git+ssh://git@gitlab.luizalabs.com/luizalabs/risco-360/libs/jwks-multi.git@v<tag>"
-pip install "git+ssh://git@gitlab.luizalabs.com/luizalabs/risco-360/libs/jwks-multi.git@<commit_sha>"
+pip install "git+ssh://git@<repo>/jwks-multi.git"
+pip install "git+ssh://git@<repo>/jwks-multi.git@main"
+pip install "git+ssh://git@<repo>/jwks-multi.git@v<tag>"
+pip install "git+ssh://git@<repo>/jwks-multi.git@<commit_sha>"
 ```
 
 ## Uso
