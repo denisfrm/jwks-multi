@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-from authlib.common.errors import AuthlibBaseError
+from joserfc.errors import MissingKeyError
 
 from jwks_multi import jwks_multi_verifier
 
@@ -17,14 +17,11 @@ def mock_key_set():
 
 
 @pytest.fixture
-def mock_import_key_set():
-    with patch(
-        'jwks_multi.jwks_multi_verifier.JsonWebKey.import_key_set'
-    ) as mocked:
-        mocked.side_effect = lambda jwks: SimpleNamespace(
-            keys=list(jwks['keys'])
-        )
-        yield mocked
+def mock_import_key_set(mock_key_set):
+    mock_key_set.import_key_set.side_effect = lambda jwks: SimpleNamespace(
+        keys=list(jwks['keys'])
+    )
+    yield mock_key_set.import_key_set
 
 
 @pytest.mark.freeze_time(datetime.fromtimestamp(100, tz=timezone.utc))
@@ -70,7 +67,7 @@ async def test_get_public_keys_raises_key_not_found(
     _, client = mock_async_client
     client.get.side_effect = httpx.HTTPError('network failure')
 
-    with pytest.raises(AuthlibBaseError, match='No JWKS keys available'):
+    with pytest.raises(MissingKeyError, match='No JWKS keys available'):
         await verifier.get_public_keys(
             jwks_urls=['https://issuer.example/.well-known/jwks.json'],
             pre_public_keys=None,

@@ -1,58 +1,58 @@
-from unittest.mock import MagicMock, patch
-
 import pytest
+from joserfc.errors import ExpiredTokenError, InvalidClaimError
 
 from jwks_multi.extentions.jwt_clains import ExtendedJWTClaims
 
-
-@pytest.fixture
-def mock_time():
-    with patch(
-        'jwks_multi.extentions.jwt_clains.time.time',
-        return_value=123.0,
-    ) as mocked:
-        yield mocked
+_EXPIRED_TIMESTAMP = 0
+_FUTURE_TIMESTAMP = 9_999_999_999
 
 
-@pytest.fixture
-def claims():
-    return ExtendedJWTClaims(payload={}, header={})
+def test_skips_validation_when_allow_blank_is_true():
+    claims = ExtendedJWTClaims(exp={'allow_blank': True})
+    claims.validate_exp(_EXPIRED_TIMESTAMP)
 
 
-def test_validate_uses_time_and_validates_all_claim_paths(mock_time, claims):
-    claims.options = {
-        'custom': {'verify': True},
-        'exp': {'verify': True},
-        'aud': {'verify': False},
-        'iss': {'verify': True},
-    }
-    claims._validate_essential_claims = MagicMock()
-    claims._validate_claim_value = MagicMock()
-    claims.validate_exp = MagicMock()
-    claims.validate_aud = MagicMock()
-    claims.validate_iss = MagicMock()
-
-    claims.validate(leeway=4)
-
-    mock_time.assert_called_once_with()
-    claims._validate_essential_claims.assert_called_once_with()
-    claims._validate_claim_value.assert_called_once_with('custom')
-    claims.validate_exp.assert_called_once_with(123, 4)
-    claims.validate_aud.assert_not_called()
-    claims.validate_iss.assert_called_once_with()
+def test_raises_when_allow_blank_is_false():
+    claims = ExtendedJWTClaims(exp={'allow_blank': False})
+    with pytest.raises(ExpiredTokenError):
+        claims.validate_exp(_EXPIRED_TIMESTAMP)
 
 
-def test_validate_prefers_explicit_now_over_current_time(mock_time, claims):
-    claims.options = {
-        'nbf': {'verify': True},
-    }
-    claims._validate_essential_claims = MagicMock()
-    claims._validate_claim_value = MagicMock()
-    claims.validate_nbf = MagicMock()
+def test_raises_when_allow_blank_is_not_set():
+    claims = ExtendedJWTClaims()
+    with pytest.raises(ExpiredTokenError):
+        claims.validate_exp(_EXPIRED_TIMESTAMP)
 
-    claims.validate(now=999, leeway=2)
 
-    mock_time.assert_not_called()
-    claims._validate_essential_claims.assert_called_once_with()
-    claims._validate_claim_value.assert_not_called()
-    claims.validate_nbf.assert_called_once_with(999, 2)
+def test_skips_validation_when_nbf_allow_blank_is_true():
+    claims = ExtendedJWTClaims(nbf={'allow_blank': True})
+    claims.validate_nbf(_FUTURE_TIMESTAMP)
+
+
+def test_raises_when_nbf_allow_blank_is_false():
+    claims = ExtendedJWTClaims(nbf={'allow_blank': False})
+    with pytest.raises(InvalidClaimError):
+        claims.validate_nbf(_FUTURE_TIMESTAMP)
+
+
+def test_raises_when_nbf_allow_blank_is_not_set():
+    claims = ExtendedJWTClaims()
+    with pytest.raises(InvalidClaimError):
+        claims.validate_nbf(_FUTURE_TIMESTAMP)
+
+
+def test_skips_validation_when_iat_allow_blank_is_true():
+    claims = ExtendedJWTClaims(iat={'allow_blank': True})
+    claims.validate_iat(_FUTURE_TIMESTAMP)
+
+
+def test_raises_when_iat_allow_blank_is_false():
+    claims = ExtendedJWTClaims(iat={'allow_blank': False})
+    with pytest.raises(InvalidClaimError):
+        claims.validate_iat(_FUTURE_TIMESTAMP)
+
+
+def test_raises_when_iat_allow_blank_is_not_set():
+    claims = ExtendedJWTClaims()
+    with pytest.raises(InvalidClaimError):
+        claims.validate_iat(_FUTURE_TIMESTAMP)

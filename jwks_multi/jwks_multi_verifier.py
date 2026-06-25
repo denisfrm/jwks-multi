@@ -4,14 +4,15 @@ import time
 from typing import Any
 
 import httpx
-from authlib.common.errors import AuthlibBaseError
-from authlib.jose import JsonWebKey, JWTClaims, KeySet, jwt
+from joserfc import jwt
+from joserfc.errors import MissingKeyError
+from joserfc.jwk import Key, KeySet, KeySetSerialization
 
 from jwks_multi.extentions.jwt_clains import ExtendedJWTClaims
 
 logger = logging.getLogger('jwks_multi')
 
-_jwk_set: dict[str, dict[str, list[Any] | float]] = {}
+_jwk_set: dict[str, dict[str, list[Key] | float]] = {}
 _jwk_locks: dict[str, asyncio.Lock] = {}
 
 
@@ -40,51 +41,53 @@ async def get_public_keys(
 async def decode_token(
     token: str,
     key: KeySet,
-    options: dict[str, bool] | None = None,
+    options: dict[str, bool | int | float] | None = None,
     issuers: list[str] | None = None,
     audiences: list[str] | None = None,
-) -> JWTClaims:
+) -> jwt.Claims:
     if not options:
         options = {}
-    claims = jwt.decode(
-        s=token,
+    if not issuers:
+        issuers = []
+    if not audiences:
+        audiences = []
+    token = jwt.decode(
+        value=token,
         key=key,
-        claims_cls=ExtendedJWTClaims,
-        claims_options={
-            'iss': {
-                'essential': True,
-                'verify': bool(issuers),
-                'values': issuers,
-            },
-            'aud': {
-                'essential': True,
-                'verify': bool(audiences),
-                'values': audiences,
-            },
-            'sub': {
-                'essential': True,
-                'verify': options.get('verify_sub', True),
-            },
-            'exp': {
-                'essential': False,
-                'verify': options.get('verify_exp', True),
-            },
-            'nbf': {
-                'essential': False,
-                'verify': options.get('verify_nbf', True),
-            },
-            'iat': {
-                'essential': True,
-                'verify': options.get('verify_iat', True),
-            },
-            'jti': {
-                'essential': True,
-                'verify': options.get('verify_jti', True),
-            },
+    )
+    claims_requests = ExtendedJWTClaims(
+        leeway=options.get('leeway') or 0,
+        iss={
+            'essential': True,
+            'values': issuers,
+        },
+        aud={
+            'essential': True,
+            'values': audiences,
+        },
+        sub={
+            'essential': True,
+            'allow_blank': not options.get('verify_sub', True),
+        },
+        exp={
+            'essential': False,
+            'allow_blank': not options.get('verify_exp', True),
+        },
+        nbf={
+            'essential': False,
+            'allow_blank': not options.get('verify_nbf', True),
+        },
+        iat={
+            'essential': True,
+            'allow_blank': not options.get('verify_iat', True),
+        },
+        jti={
+            'essential': True,
+            'allow_blank': not options.get('verify_jti', True),
         },
     )
-    claims.validate(leeway=options.get('leeway') or 0)
-    return claims
+    claims_requests.validate(token.claims)
+    return token.claims
 
 
 def _get_jwks_set() -> KeySet:
@@ -92,8 +95,7 @@ def _get_jwks_set() -> KeySet:
     for jwk in _jwk_set.values():
         jwks_set.extend(jwk['keys'])
     if not jwks_set:
-        raise AuthlibBaseError(
-            error='missing_keys',
+        raise MissingKeyError(
             description=(
                 'No JWKS keys available. '
                 'Verify the provided URLs and pre_public_keys.'
@@ -104,11 +106,11 @@ def _get_jwks_set() -> KeySet:
 
 def _add_keys_from_jwks(
     uri: str,
-    jwks: dict[str, list[dict[str, Any]]],
+    jwks: KeySetSerialization,
     expires_at: float = -1,
 ) -> None:
     if jwks and 'keys' in jwks:
-        key_set = JsonWebKey.import_key_set(jwks)
+        key_set = KeySet.import_key_set(jwks)
         _jwk_set[uri] = {'keys': key_set.keys, 'expires_at': expires_at}
 
 
