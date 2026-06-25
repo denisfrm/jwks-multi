@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-25
+
+### Security
+
+- Use joserfc instead of authlib.jose. (use-joserfc)
+
+
 ## [0.3.1] - 2026-04-23
 
 No significant changes.
